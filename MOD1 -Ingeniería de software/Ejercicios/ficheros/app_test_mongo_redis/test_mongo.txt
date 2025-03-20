@@ -1,0 +1,1 @@
+curl -X POST -H "Content-Type: application/json" -d '{"_id":"1","name":"John","email":"john@test.com","age":30}' http://localhost:5000/mongo/user
