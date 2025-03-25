@@ -7,13 +7,8 @@ Vagrant.configure("2") do |config|
 
 
   config.vm.define "master" do |master|
-<<<<<<< HEAD
     master.vm.hostname = "maestro"
     master.vm.network "private_network", ip: "192.168.33.10"
-=======
-    master.vm.hostname = "master"
-    #master.vm.network "private_network" 
->>>>>>> 80e7d35f1162be024bb70099fc20858cb939dfeb
     master.vm.network "forwarded_port", guest: 8080, host: 8080
     master.vm.provider "virtualbox" do |vb|
       vb.name = "maestro"
@@ -25,7 +20,6 @@ Vagrant.configure("2") do |config|
 
   end
 
-<<<<<<< HEAD
 
   # Configuración de dos máquinas virtuales objetivo
   (1..3).each do |i|
@@ -38,16 +32,6 @@ Vagrant.configure("2") do |config|
 
       end
       slave.vm.provision "shell", path: "slave.sh"
-=======
-  config.vm.define "nodo1" do |nodo1|
-    nodo1.vm.hostname = "nodo1"
-    #nodo1.vm.network "private_network"
-    
-    nodo1.vm.provider "virtualbox" do |vb|
-      vb.name = "nodo1"
-      vb.memory = "2048"
-      vb.cpus = 2
->>>>>>> 80e7d35f1162be024bb70099fc20858cb939dfeb
     end
   end
 
