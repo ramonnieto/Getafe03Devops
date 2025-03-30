@@ -1,0 +1,47 @@
+pipeline {
+    agent none // No se asigna un agente global, ya que los agentes se especifican en cada rama paralela.
+
+    stages {
+        stage('Ejecución en Paralelo') {
+            parallel {
+                stage('Tareas en Master') {
+                    agent { label 'master' } // Ejecuta esta rama en el nodo master.
+                    steps {
+                        echo "Ejecutando tareas en el nodo master..."
+                        script {
+                            // Verifica el hostname
+                            def hostname = sh(script: 'hostname', returnStdout: true).trim()
+                            echo "Hostname del nodo master: ${hostname}"
+
+                            // Verifica el ID del usuario
+                            def userId = sh(script: 'id', returnStdout: true).trim()
+                            echo "ID del usuario en el nodo master: ${userId}"
+                        }
+                    }
+                }
+
+                stage('Tareas en Slave-Tomcat') {
+                    agent { label 'slave-tomcat' } // Ejecuta esta rama en el nodo slave-tomcat.
+                    steps {
+                        echo "Ejecutando tareas en el nodo slave-tomcat..."
+                        script {
+                            // Verifica el hostname
+                            def hostname = sh(script: 'hostname', returnStdout: true).trim()
+                            echo "Hostname del nodo slave-tomcat: ${hostname}"
+
+                            // Verifica el ID del usuario
+                            def userId = sh(script: 'id', returnStdout: true).trim()
+                            echo "ID del usuario en el nodo slave-tomcat: ${userId}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline completado."
+        }
+    }
+}

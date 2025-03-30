@@ -55,3 +55,4 @@ Si tienes preguntas o sugerencias, no dudes en contactarme:
 - Email: ricardo.instructor.formacion@gmail.com
 
 
+Se incluye el fichero LPIC-1_Com.pdf escrito con anterioridad a la década del 2010 por parte del profesor. Escrito con buena voluntad y "robado" (no respetando la licencia) por "una empresa ******". Desfasado pero con conceptos que siguen siendo válidos.
