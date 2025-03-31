@@ -1,0 +1,27 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Configuración global de Vagrant
+  config.vm.box = "bento/ubuntu-22.04"
+
+  # Definición de la máquina principal
+  config.vm.define "principal" do |principal|
+    principal.vm.hostname = "principal"
+    principal.vm.network "private_network", ip: "192.168.33.10"
+    principal.vm.provider "virtualbox" do |vb|
+      vb.name = "principal_vm"  # Nombre de la VM en el hipervisor
+    end
+    principal.vm.provision "shell", path: "instalar_docker.sh"
+  end
+
+  # Definición de la máquina test
+  config.vm.define "test" do |test|
+    test.vm.hostname = "test"
+    test.vm.network "private_network", ip: "192.168.33.11"
+    test.vm.provider "virtualbox" do |vb|
+      vb.name = "test_vm"  # Nombre de la VM en el hipervisor
+    end
+    test.vm.provision "shell", path: "instalar_docker.sh"
+  end
+end

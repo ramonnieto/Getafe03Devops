@@ -1,0 +1,46 @@
+pipeline {
+    agent none
+    stages {
+        stage('Clonamos el repo del compañero Gilbert') {
+            agent { label 'master' }
+            steps {
+                git 'https://gitlab.com/GilbertFongan/demo-jenkins'
+            }
+        }
+        stage('- BUILD - Construimos la aplicación Java ') {
+            agent { label 'master' }
+            steps {
+                withMaven(jdk: 'JenkinsJDK', maven: 'JenkinsMAVEN') {
+                    sh 'mvn -f java-tomcat-sample/pom.xml clean package'
+                }
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'java-tomcat-sample/target/*.war', fingerprint: true
+                }
+            }
+        }
+        stage('Copiamos el compilado (war) al entorno de producción') {
+            agent { label 'slave-tomcat' }
+            steps {
+                copyArtifacts(
+                    filter: '**/*.war',
+                    fingerprintArtifacts: true,
+                    projectName: env.JOB_NAME,
+                    selector: specific("${currentBuild.number}")
+                )
+                sh 'ls -l' // Debe mostrar el .war copiado
+            }
+        }
+        stage('Deply en producción') {
+            agent { label 'slave-tomcat' }
+            steps {
+                deploy adapters: [tomcat9(
+                    credentialsId: '84445ff9-622c-4225-a586-5b72d21e86ab', // estas deben coincidir con las creadas en security para el usuario vagrant
+                    url: 'http://172.17.8.164:8080'
+                )], 
+                war: '**/*.war'
+            }
+        }
+    }
+}
