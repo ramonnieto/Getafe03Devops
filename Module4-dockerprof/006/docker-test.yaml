@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+  mariadb:
+    image: mariadb
+    networks:
+      - devops
+    volumes:
+      - /opt/mysql_wp:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: bd_wp
+      MYSQL_USER: user_wp
+      MYSQL_PASSWORD: CaM1n0K0yoT3
+      MYSQL_ROOT_PASSWORD: CaM1n0K0yoT3
+
+  wordpress:
+    image: wordpress
+    networks:
+      - devops
+    volumes:
+      - /opt/wordpress:/var/www/html/wp-content
+    environment:
+      WORDPRESS_DB_HOST: mariadb
+      WORDPRESS_DB_USER: user_wp
+      WORDPRESS_DB_PASSWORD: CaM1n0K0yoT3
+      WORDPRESS_DB_NAME: bd_wp
+    ports:
+      - 80:80
+
+volumes:
+  wordpress_data:
+  mariadb_data:
+
+networks:
+  devops:

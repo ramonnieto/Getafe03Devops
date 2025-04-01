@@ -1,0 +1,17 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.network "private_network", ip: "192.168.33.10"
+  
+  config.vm.provision "shell", inline: <<-SHELL
+    # Instalar Docker según procedimientos oficiales
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker vagrant
+    
+    # Instalar Docker Compose
+    sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+  SHELL
+
+  config.vm.synced_folder ".", "/vagrant"
+end

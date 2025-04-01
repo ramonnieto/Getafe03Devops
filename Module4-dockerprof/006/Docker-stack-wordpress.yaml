@@ -1,0 +1,31 @@
+# wordpress-stack.yml
+version: '3.1'
+services:
+  mariadb:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_DATABASE: bd_wp
+      MYSQL_USER: user_wp
+      MYSQL_PASSWORD: CaM1n0K0yoT3
+      MYSQL_ROOT_PASSWORD: CaM1n0K0yoT3
+    volumes:
+      - "/opt/mysql:/var/lib/mysql"
+    deploy:
+      placement:
+        constraints: [node.role == worker]
+  wordpress:
+    image: wordpress
+    restart: always
+    ports:
+      - 80:80
+    environment:
+      WORDPRESS_DB_HOST: mariadb
+      WORDPRESS_DB_USER: user_wp
+      WORDPRESS_DB_PASSWORD: CaM1n0K0yoT3
+      WORDPRESS_DB_NAME: bd_wp
+    volumes:
+      - "/opt/wp-content:/var/www/html/wp-content"
+    deploy:
+      placement:
+        constraints: [node.role == worker]

@@ -1,0 +1,125 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Configuración de la red interna
+
+  # Definición de las máquinas virtuales
+  {
+    "proxy" => { ip: "192.168.33.10", hostname: "proxy", ports: { 80 => 8888, 443 => 4430 } },
+    "frontend"   => { ip: "192.168.33.11", hostname: "frontend" }
+    #"backend"   => { ip: "192.168.33.12", hostname: "backend" }
+  }.each do |name, options|
+    config.vm.define name do |node|
+      node.vm.box = "bento/ubuntu-22.04"
+      node.vm.hostname = options[:hostname]
+      node.vm.network "private_network", ip: options[:ip]
+
+      # Redirección de puertos para "proxy"
+      if options[:ports]
+        options[:ports].each do |guest_port, host_port|
+          node.vm.network "forwarded_port", guest: guest_port, host: host_port
+        end
+      end
+
+      # Aprovisionamiento con shell
+      node.vm.provision "shell", inline: <<-SHELL
+        # Actualización del sistema
+        apt-get update -y
+        apt-get upgrade -y
+
+        # Instalación de Docker en todos los nodos
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+        usermod -aG docker vagrant
+
+        # Instalación específica según el nodo
+        if [[ $(hostname) == "#{options[:hostname]}" ]]; then
+          if [[ $(hostname) == "proxy" ]]; then
+            # Instalación de Nginx en proxy (central)
+            apt-get install -y nginx
+
+            # Creación del certificado SSL
+            mkdir -p /etc/nginx/ssl
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout /etc/nginx/ssl/nginx.key \
+              -out /etc/nginx/ssl/nginx.crt \
+              -subj "/C=ES/ST=Madrid/L=Getafe/O=Devops/CN=central"
+
+            # Configuración de Nginx como proxy inverso
+            cat > /etc/nginx/sites-available/default <<EOF
+server {
+    listen 80;
+    server_name central;
+
+    location / {
+        proxy_pass http://192.168.33.11:8080;
+    }
+    location /api {
+        proxy_pass http://192.168.33.11:5000;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name central;
+
+    ssl_certificate /etc/nginx/ssl/nginx.crt;
+    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+
+    location / {
+        proxy_pass http://192.168.33.11:8080;
+    }
+    location /api {
+        proxy_pass http://192.168.33.11:5000;
+    }
+}
+EOF
+
+            systemctl restart nginx
+
+          elif [[ $(hostname) == "frontend" ]]; then
+            # Creación del Dockerfile en frontend (nodo1)
+            mkdir -p /srv/front
+            
+cat > /srv/front/Dockerfile <<EOF
+FROM python:3-alpine
+WORKDIR /srv
+COPY index.html  .
+COPY styles.css  .
+COPY script.js .
+CMD ["python3", "-m", "http.server", "8080"]
+EOF
+
+            sudo cp /vagrant/index.html /vagrant/styles.css /vagrant/script.js /srv/front/
+            cd /srv/front/
+            docker build -t srv-web .
+            docker run -d --name web-server -p 8080:8080 srv-web
+
+          #elif [[ $(hostname) == "backend" ]]; then
+			
+            
+            # Creación del Dockerfile en backend (nodo2)
+            
+            mkdir -p /srv/back/
+
+            cat > /srv/back/Dockerfile <<EOF
+FROM python:3-alpine
+WORKDIR /app
+COPY requirements.txt .
+COPY app.py .
+RUN pip install --no-cache-dir -r requirements.txt
+EXPOSE 5000
+CMD ["python3", "/app/app.py"]
+EOF
+			sudo cp /vagrant/app.py /vagrant/requirements.txt /srv/back/
+            cd /srv/back/
+            docker build -t barometro .
+            docker run -d --name barometro -p 5000:5000 barometro
+
+          fi
+        fi
+      SHELL
+    end
+  end
+end
