@@ -1,0 +1,4 @@
+sudo dnf install epel-release -y
+sudo dnf install ansible -y
+python3 -m pip install --user ansible-navigator
+podman pull quay.io/ansible/ansible-runner:latest

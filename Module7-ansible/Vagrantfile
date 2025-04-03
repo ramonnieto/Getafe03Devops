@@ -1,0 +1,71 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Configuración común para todos los nodos
+  config.vm.box_check_update = false
+
+  # Nodo Manager
+  config.vm.define "manager" do |manager|
+    manager.vm.box = "bento/rockylinux-9"
+    manager.vm.hostname = "manager"
+    manager.vm.network "private_network", ip: "192.168.33.10"
+    manager.vm.provider "virtualbox" do |vb|
+      vb.name = "manager"
+      vb.memory = 3072 # 3GB
+      vb.cpus = 2
+    end
+    manager.vm.provision "shell", inline: <<-SHELL
+      sudo yum -y update
+      sudo yum -y install python3 podman
+    SHELL
+  end
+
+  # Nodo1
+  config.vm.define "nodo1" do |nodo1|
+    nodo1.vm.box = "bento/rockylinux-9"
+    nodo1.vm.hostname = "nodo1"
+    nodo1.vm.network "private_network", ip: "192.168.33.11"
+    nodo1.vm.provider "virtualbox" do |vb|
+      vb.name = "nodo1"
+      vb.memory = 2048 # 2GB
+      vb.cpus = 1
+    end
+    nodo1.vm.provision "shell", inline: <<-SHELL
+      sudo yum -y update
+      sudo yum -y install python3 podman
+    SHELL
+  end
+
+  # Nodo2
+  config.vm.define "nodo2" do |nodo2|
+    nodo2.vm.box = "bento/rockylinux-8"
+    nodo2.vm.hostname = "nodo2"
+    nodo2.vm.network "private_network", ip: "192.168.33.12"
+    nodo2.vm.provider "virtualbox" do |vb|
+      vb.name = "nodo2"
+      vb.memory = 2048 # 2GB
+      vb.cpus = 1
+    end
+    nodo2.vm.provision "shell", inline: <<-SHELL
+      sudo yum -y update
+      sudo yum -y install python3 podman
+    SHELL
+  end
+
+  # Nodo3
+  config.vm.define "nodo3" do |nodo3|
+    nodo3.vm.box = "bento/ubuntu-22.04"
+    nodo3.vm.hostname = "nodo3"
+    nodo3.vm.network "private_network", ip: "192.168.33.13"
+    nodo3.vm.provider "virtualbox" do |vb|
+      vb.name = "nodo3"
+      vb.memory = 2048 # 2GB
+      vb.cpus = 2
+    end
+    nodo3.vm.provision "shell", inline: <<-SHELL
+      sudo apt update
+      sudo apt install -y python3 podman
+    SHELL
+  end
+end

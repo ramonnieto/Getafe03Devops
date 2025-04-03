@@ -3,7 +3,7 @@
 
 Vagrant.configure("2") do |config|
   # Configuración de la red interna
-  config.vm.network "private_network", ip: "192.168.33.9"
+  config.vm.network "private_network", ip: "192.168.33.9", virtualbox__intnet: true
 
   # Definición de las máquinas virtuales
   {
@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
     config.vm.define name do |node|
       node.vm.box = "bento/ubuntu-22.04"
       node.vm.hostname = options[:hostname]
-      node.vm.network "private_network", ip: options[:ip]
+      node.vm.network "private_network", ip: options[:ip], virtualbox__intnet: true
 
       # Redirección de puertos para "central"
       if options[:ports]
@@ -39,11 +39,6 @@ Vagrant.configure("2") do |config|
           # Instalación de Nginx en central
           apt-get install -y nginx
 
-          # Elimina el enlace simbólico si ya existe
-          if [ -L /etc/nginx/sites-enabled/default ]; then
-              rm /etc/nginx/sites-enabled/default
-          fi
-
           # Creación del certificado SSL
           mkdir -p /etc/nginx/ssl
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -53,17 +48,12 @@ Vagrant.configure("2") do |config|
 
           # Configuración de Nginx como proxy inverso
           cat > /etc/nginx/sites-available/default <<EOF
-upstream backend {
-    server 192.168.33.11:8080;
-    server 192.168.33.12:8080;
-}
-
 server {
     listen 80;
     server_name central;
 
     location / {
-        proxy_pass http://backend;
+        proxy_pass http://192.168.33.11:8080;
     }
 }
 
@@ -75,28 +65,23 @@ server {
     ssl_certificate_key /etc/nginx/ssl/nginx.key;
 
     location / {
-        proxy_pass http://backend;
+        proxy_pass http://192.168.33.11:8080;
     }
 }
 EOF
 
-          # Crea el enlace simbólico solo si no existe
-          ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
-
-          # Verifica la configuración de Nginx antes de reiniciar
-          nginx -t && systemctl restart nginx
+          systemctl restart nginx
 
         elif [[ $(hostname) == "nodo1" || $(hostname) == "nodo2" ]]; then
           # Creación del Dockerfile en nodo1 y nodo2
           mkdir -p /srv
-          echo "Bienvenido a $(hostname)" > /srv/index.html
+          echo "Bienvenido a #{name}" > /srv/index.html
 
           cat > /srv/Dockerfile <<EOF
 FROM alpine:latest
 RUN apk add --no-cache python3
 WORKDIR /srv
 COPY index.html /srv/
-EXPOSE 8080
 CMD ["python3", "-m", "http.server", "8080"]
 EOF
 
