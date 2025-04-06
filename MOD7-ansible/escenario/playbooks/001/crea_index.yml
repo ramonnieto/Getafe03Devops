@@ -1,0 +1,18 @@
+---
+- name: Crear archivo index.html personalizado
+  hosts: nodo1,nodo3  # Solo estos dos hosts
+  become: yes
+  
+  tasks:
+    - name: Crear archivo con hostname
+      ansible.builtin.copy:
+        dest: /var/www/html/index.html  # Ruta definitiva para servidores web
+        content: |
+          <html>
+          <body>
+            <h1>Hola caracola {{ ansible_hostname }}</h1>
+          </body>
+          </html>
+        owner: "{{ 'apache' if ansible_os_family == 'RedHat' else 'www-data' }}"  # Usuario correcto según SO
+        group: "{{ 'apache' if ansible_os_family == 'RedHat' else 'www-data' }}"
+        mode: 0644

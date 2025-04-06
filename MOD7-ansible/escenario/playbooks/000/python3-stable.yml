@@ -1,0 +1,19 @@
+---
+# Playbook para actualizar Python a la últimma versión en ramas RedHat y Debian
+
+- name: Actualizar Python en nodos RedHat y Debian
+  hosts: all
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Actualizar Python usando dnf para sistemas RedHat
+      ansible.builtin.dnf:
+        name: python3
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Actualizar Python usando apt para sistemas Debian
+      ansible.builtin.apt:
+        name: python3
+        state: latest
+      when: ansible_os_family == "Debian"

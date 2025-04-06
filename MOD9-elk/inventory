@@ -1,0 +1,8 @@
+[administracion]
+administracion ansible_connection=local
+
+[recurso]
+recurso ansible_connection=local
+
+[seguimiento]
+seguimiento ansible_connection=local

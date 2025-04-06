@@ -1,0 +1,48 @@
+---
+- name: Instalar Docker en Rocky Linux 8
+  hosts: nodo2
+  become: true
+  vars:
+    docker_user: "{{ ansible_user }}"
+
+  tasks:
+    - name: Eliminar Podman y dependencias conflictivas
+      ansible.builtin.dnf:
+        name:
+          - podman
+          - runc
+          - containerd
+        state: absent
+        autoremove: true
+
+    - name: Limpiar cache de DNF
+      ansible.builtin.command: dnf clean all
+
+    - name: Agregar repositorio Docker oficial
+      ansible.builtin.yum_repository:
+        name: docker-ce
+        description: Docker CE Stable
+        baseurl: https://download.docker.com/linux/centos/8/x86_64/stable
+        gpgkey: https://download.docker.com/linux/centos/gpg
+        gpgcheck: true
+        enabled: true
+
+    - name: Instalar Docker CE
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Habilitar e iniciar servicio Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Agregar usuario al grupo Docker
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: true

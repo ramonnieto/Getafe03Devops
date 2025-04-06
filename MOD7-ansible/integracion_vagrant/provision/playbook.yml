@@ -1,0 +1,107 @@
+---
+- name: Provision Docker and Jenkins Container
+  hosts: all
+  connection: local
+  become: yes # Necesitamos sudo para instalar paquetes y gestionar Docker
+  vars:
+    jenkins_docker_image: "jenkins/jenkins:lts-jdk11" # Imagen recomendada LTS con JDK11
+    jenkins_container_name: "jenkins-server"
+    jenkins_home_volume_path: "/var/jenkins_data" # Directorio en la VM para persistencia
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600 # Actualiza cada hora como máximo
+      tags: [docker, packages]
+
+    - name: Install prerequisite packages for Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - python3-pip # Necesario para el módulo docker de Ansible
+        state: present
+      tags: [docker, packages]
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+      tags: [docker, repo]
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+        filename: docker
+      tags: [docker, repo]
+
+    - name: Install Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+      tags: [docker, install]
+
+    - name: Ensure Docker service is started and enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      tags: [docker, service]
+
+    - name: Install Docker SDK for Python
+      pip:
+        name: docker
+        state: present
+      tags: [docker, sdk]
+
+    - name: Add vagrant user to the docker group
+      user:
+        name: vagrant # Usuario por defecto en VMs Vagrant
+        groups: docker
+        append: yes # Asegura que no se eliminen otros grupos
+      tags: [docker, user]
+      # Nota: Puede requerir un reinicio de sesión para que el cambio de grupo tenga efecto
+      # para comandos manuales, pero Ansible (con become) no lo necesita.
+
+    - name: Create Jenkins home directory on host VM
+      file:
+        path: "{{ jenkins_home_volume_path }}"
+        state: directory
+        mode: '0755' # Jenkins necesita escribir aquí
+      tags: [jenkins, volume]
+
+    - name: Pull Jenkins Docker image
+      community.docker.docker_image: # Usar FQCN (Fully Qualified Collection Name) es buena práctica
+        name: "{{ jenkins_docker_image }}"
+        source: pull
+      tags: [jenkins, docker]
+
+    - name: Create and run Jenkins container
+      community.docker.docker_container:
+        name: "{{ jenkins_container_name }}"
+        image: "{{ jenkins_docker_image }}"
+        state: started # Asegura que el contenedor esté iniciado
+        restart_policy: always # Reinicia el contenedor si se detiene o al arrancar la VM
+        published_ports:
+          - "8080:8080" # Puerto web de Jenkins
+          - "50000:50000" # Puerto para agentes Jenkins
+        volumes:
+          - "{{ jenkins_home_volume_path }}:/var/jenkins_home" # Persistencia de datos
+        env: # Opcional: Puedes pasar variables de entorno, como opciones de JVM
+           JAVA_OPTS: "-Djenkins.install.runSetupWizard=false" # Deshabilita el wizard inicial (opcional)
+      tags: [jenkins, docker]
+
+    - name: Show Jenkins initial admin password info
+      debug:
+        msg: "Una vez Jenkins esté listo, busca la contraseña inicial en la VM Vagrant: sudo cat {{ jenkins_home_volume_path }}/secrets/initialAdminPassword"
+      tags: [jenkins, info]

@@ -1,0 +1,39 @@
+Vagrant.configure("2") do |config|
+  nodes = [
+    { name: "administracion", ip: "192.168.33.10" },
+    { name: "recurso", ip: "192.168.33.11" },
+    { name: "seguimiento", ip: "192.168.33.12" }
+  ]
+
+  nodes.each do |node|
+    config.vm.define node[:name] do |n|
+      n.vm.box = "bento/rockylinux-9"
+      n.vm.hostname = node[:name]
+      n.vm.network "private_network", ip: node[:ip]
+
+      # Forwarding de puertos dependiendo del nodo
+      case node[:name]
+      when "recurso"
+        # Puerto 8080 de WordPress (Docker) -> Puerto 8080 en localhost
+        n.vm.network "forwarded_port", guest: 8080, host: 8080
+      when "seguimiento"
+        # Puerto 9200 de Elasticsearch -> Puerto 9200 en localhost
+        n.vm.network "forwarded_port", guest: 9200, host: 9200
+        # Puerto 5601 de Kibana -> Puerto 5601 en localhost
+        n.vm.network "forwarded_port", guest: 5601, host: 5601
+        # Puerto 3000 de Grafana -> Puerto 3000 en localhost
+        n.vm.network "forwarded_port", guest: 3000, host: 3000
+      end
+
+      n.vm.provider "virtualbox" do |vb|
+        vb.memory = 2048
+        vb.cpus = 2
+      end
+
+      n.vm.provision "ansible_local" do |ansible|
+        ansible.playbook = "provision.yml"
+        ansible.inventory_path = "inventory"
+      end
+    end
+  end
+end

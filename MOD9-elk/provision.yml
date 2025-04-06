@@ -1,0 +1,174 @@
+---
+- name: Configuración de todas las máquinas
+  hosts: all
+  become: true
+  tasks:
+    - name: Instalar Ansible localmente
+      ansible.builtin.yum:
+        name: ansible
+        state: present
+
+    - name: Actualizar todos los paquetes
+      ansible.builtin.yum:
+        name: '*'
+        state: latest
+
+    - name: Añadir entradas al /etc/hosts para los tres nodos
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          192.168.33.10 administracion
+          192.168.33.11 recurso
+          192.168.33.12 seguimiento
+
+- name: Configurar máquina recurso
+  hosts: recurso
+  become: true
+  tasks:
+    - name: Desinstalar Podman y sus dependencias
+      ansible.builtin.yum:
+        name:
+          - podman
+          - podman-docker
+        state: absent
+
+    - name: Añadir repositorio oficial de Docker
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Instalar Docker desde el repositorio oficial
+      ansible.builtin.yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Habilitar y arrancar Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Crear carpeta para docker compose
+      ansible.builtin.file:
+        path: /opt/wordpress
+        state: directory
+
+    - name: Copiar archivo docker-compose.yml
+      ansible.builtin.copy:
+        dest: /opt/wordpress/docker-compose.yml
+        content: |
+          version: '3'
+          services:
+            wordpress:
+              image: wordpress:latest
+              ports:
+                - "8080:80"
+              environment:
+                WORDPRESS_DB_HOST: db
+                WORDPRESS_DB_USER: wordpress
+                WORDPRESS_DB_PASSWORD: wordpress
+                WORDPRESS_DB_NAME: wordpress
+              networks:
+                - wpnet
+            db:
+              image: mysql:5.7
+              restart: always
+              environment:
+                MYSQL_DATABASE: wordpress
+                MYSQL_USER: wordpress
+                MYSQL_PASSWORD: wordpress
+                MYSQL_ROOT_PASSWORD: root
+              volumes:
+                - db_data:/var/lib/mysql
+              networks:
+                - wpnet
+          volumes:
+            db_data:
+          networks:
+            wpnet:
+
+    - name: Levantar contenedores con docker compose
+      ansible.builtin.shell:
+        cmd: docker compose up -d
+        chdir: /opt/wordpress
+
+- name: Configurar máquina seguimiento (ELK + Grafana)
+  hosts: seguimiento
+  become: true
+  tasks:
+    - name: Instalar Java 17 (necesario para Elasticsearch)
+      ansible.builtin.yum:
+        name: java-17-openjdk
+        state: present
+
+    - name: Importar clave GPG de Elastic
+      ansible.builtin.rpm_key:
+        key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+
+    - name: Añadir repositorios e instalar Elasticsearch, Logstash, Kibana
+      block:
+        - name: Descargar e instalar Elasticsearch
+          ansible.builtin.get_url:
+            url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.11.1-x86_64.rpm
+            dest: /tmp/elasticsearch.rpm
+        - name: Instalar Elasticsearch
+          ansible.builtin.yum:
+            name: /tmp/elasticsearch.rpm
+            state: present
+        - name: Habilitar Elasticsearch
+          ansible.builtin.systemd:
+            name: elasticsearch
+            enabled: true
+            state: started
+
+        - name: Instalar Logstash
+          ansible.builtin.yum:
+            name: https://artifacts.elastic.co/downloads/logstash/logstash-8.11.1-x86_64.rpm
+            state: present
+        - name: Habilitar Logstash
+          ansible.builtin.systemd:
+            name: logstash
+            enabled: true
+            state: started
+
+        - name: Instalar Kibana
+          ansible.builtin.yum:
+            name: https://artifacts.elastic.co/downloads/kibana/kibana-8.11.1-x86_64.rpm
+            state: present
+        - name: Habilitar Kibana
+          ansible.builtin.systemd:
+            name: kibana
+            enabled: true
+            state: started
+
+    - name: Crear archivo /etc/vagrant_ports.txt si no existe
+      ansible.builtin.file:
+        path: /etc/vagrant_ports.txt
+        state: touch
+
+    - name: Redirigir puertos para acceso externo
+      ansible.builtin.blockinfile:
+        path: /etc/vagrant_ports.txt
+        block: |
+          Elasticsearch: http://192.168.33.12:9200
+          Kibana: http://192.168.33.12:5601
+
+    - name: Importar clave GPG de Grafana
+      ansible.builtin.rpm_key:
+        key: https://apt.grafana.com/gpg.key
+        state: present
+
+    - name: Instalar Grafana
+      ansible.builtin.yum:
+        name: https://dl.grafana.com/oss/release/grafana-10.2.3-1.x86_64.rpm
+        state: present
+
+    - name: Habilitar Grafana
+      ansible.builtin.systemd:
+        name: grafana-server
+        enabled: true
+        state: started

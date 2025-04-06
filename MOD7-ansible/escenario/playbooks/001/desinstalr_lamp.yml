@@ -1,0 +1,68 @@
+---
+- name: Desinstalar LAMP en nodo1 (RedHat/CentOS/Rocky)
+  hosts: nodo1
+  become: yes
+  vars:
+    lamp_packages:
+      - httpd
+      - mariadb-server
+      - mariadb
+      - php
+      - php-mysqlnd
+    services_rh:
+      - httpd
+      - mariadb
+    firewall_services:
+      - http
+      - https
+
+  tasks:
+    - name: Detener y deshabilitar servicios
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop: "{{ services_rh }}"
+
+    - name: Desinstalar paquetes LAMP
+      ansible.builtin.dnf:
+        name: "{{ lamp_packages }}"
+        state: absent
+        autoremove: yes  # Elimina dependencias no utilizadas
+
+    - name: Eliminar reglas del firewall
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        state: disabled  # Revierte las reglas a estado original
+        permanent: yes
+        immediate: yes
+      loop: "{{ firewall_services }}"
+
+- name: Desinstalar LAMP en nodo3 (Ubuntu 24.04)
+  hosts: nodo3
+  become: yes
+  tasks:
+    - name: Detener y deshabilitar servicios
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - apache2
+        - mysql
+
+    - name: Desinstalar paquetes LAMP
+      ansible.builtin.apt:
+        name:
+          - apache2
+          - mariadb-server
+          - php
+          - php-mysql
+          - libapache2-mod-php
+        state: absent
+        purge: yes  # Elimina archivos de configuración
+
+    - name: Limpiar dependencias no utilizadas
+      ansible.builtin.apt:
+        autoremove: yes
+        purge: yes

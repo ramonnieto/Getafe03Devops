@@ -1,0 +1,37 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-22.04"
+
+  # Manager (Workstation)
+  config.vm.define "manager" do |manager|
+    manager.vm.hostname = "manager"
+    manager.vm.network "private_network", ip: "192.168.33.10"
+    manager.vm.provider "virtualbox" do |vb|
+      vb.name = "manager"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+  end
+
+  # Agente 1
+  config.vm.define "agente1" do |agente1|
+    agente1.vm.hostname = "agente1"
+    agente1.vm.network "private_network", ip: "192.168.33.11"
+    agente1.vm.provider "virtualbox" do |vb|
+      vb.name = "agente1"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+  end
+
+  # Agente 2
+  config.vm.define "agente2" do |agente2|
+    agente2.vm.hostname = "agente2"
+    agente2.vm.network "private_network", ip: "192.168.33.12"
+    agente2.vm.provider "virtualbox" do |vb|
+      vb.name = "agente2"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+  end
+end
+

@@ -1,0 +1,16 @@
+[redhat]
+nodo1
+nodo2
+
+[ubuntu]
+nodo3
+
+[webserver]
+nodo1
+
+[dataserver]
+nodo2
+
+[lampservers:children]
+webserver
+dataserver

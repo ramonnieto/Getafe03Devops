@@ -1,0 +1,22 @@
+# Vagrantfile
+Vagrant.configure("2") do |config|
+  nodes = [
+    { :hostname => "manager", :ip => "192.168.33.10", :mem => 2048 },
+    { :hostname => "agente1", :ip => "192.168.33.11", :mem => 1024 },
+    { :hostname => "agente2", :ip => "192.168.33.12", :mem => 1024 }
+  ]
+
+  nodes.each do |node|
+    config.vm.define node[:hostname] do |node_config|
+      node_config.vm.box = "bento/ubuntu-22.04"
+      node_config.vm.hostname = node[:hostname]
+      node_config.vm.network "private_network", ip: node[:ip]
+      node_config.vm.provider "virtualbox" do |vb|
+        vb.memory = node[:mem]
+      end
+      node_config.vm.provision "shell", inline: <<-SHELL
+        apt-get update
+      SHELL
+    end
+  end
+end

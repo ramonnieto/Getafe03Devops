@@ -1,0 +1,14 @@
+---
+- name: Configurar privilegios sudo
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Crear archivo sudoers
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/curso
+        content: "curso ALL=(ALL) NOPASSWD:ALL"
+        validate: /usr/sbin/visudo -cf %s
+        owner: root
+        group: root
+        mode: 0440

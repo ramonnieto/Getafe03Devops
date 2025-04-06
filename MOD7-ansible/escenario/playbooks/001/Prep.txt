@@ -1,0 +1,21 @@
+Previos:
+1) Instalar módulos ---> ansible-galaxy collection install ansible.posix
+2) Configurar ansible para localizar los módulos ---->
+
+cat ansible.cfg 
+[defaults]
+inventory=/home/vagrant/inventory
+host_key_checking=false
+remote_user=vagrant
+ask_password=false
+collections_path=/home/vagrant/.ansible/collections # ESTA ES LA LÍNEA AGREGADA. LA RUTA PUEDE SER OTRA PERO, EN SITUACIONES NORMALES, NOS VALE.
+
+[privilege_escalation]
+become=true
+become_method=sudo
+become_user=root
+become_ask_pass=false
+
+
+
+

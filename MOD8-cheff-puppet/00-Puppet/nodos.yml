@@ -1,0 +1,18 @@
+targets:
+  - name: agente1
+    uri: 192.168.33.11
+    config:
+      transport: ssh
+      ssh:
+        user: vagrant
+        password: vagrant
+        host-key-check: false
+
+  - name: agente2
+    uri: 192.168.33.12
+    config:
+      transport: ssh
+      ssh:
+        user: vagrant
+        password: vagrant
+        host-key-check: false

@@ -1,0 +1,16 @@
+---
+- name: Crear usuario curso
+  hosts: all
+  become: true
+  vars_files:
+    - /home/vagrant/vars/users.yml
+
+  tasks:
+    - name: Crear usuario curso
+      ansible.builtin.user:
+        name: curso
+        shell: /bin/bash
+        groups: docker
+        append: true
+        password: "{{ user_password | password_hash('sha512') }}"
+        update_password: always

@@ -1,0 +1,30 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Define la máquina virtual (host_vm)
+  config.vm.box = "ubuntu/focal64" # Puedes usar otra imagen base si prefieres
+  config.vm.hostname = "ansible-host"
+
+  # Redirección de puertos para acceder a Jenkins desde tu máquina física
+  # Puerto 8080 del host -> Puerto 8080 de la VM (donde correrá Jenkins)
+  config.vm.network "forwarded_port", guest: 8080, host: 8088 # Uso 8088 en host por si ya usas 8080
+
+  # Configura el proveedor VirtualBox (opcional, puedes ajustar la memoria/CPU)
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "2048" # Más memoria puede ser útil para Jenkins/Docker
+    vb.cpus = "2"
+  end
+
+  # Usa el provisionador ansible_local: Vagrant instalará Ansible DENTRO de la VM
+  # y ejecutará el playbook especificado.
+  config.vm.provision "ansible_local" do |ansible|
+    ansible.playbook = "provision/playbook.yml"
+    # Asegúrate de que Ansible se instale si no está
+    ansible.install = true
+    # Puedes especificar una versión de Ansible si es necesario
+    # ansible.version = "latest"
+    # Habilita la salida detallada de Ansible (-vvv)
+    ansible.verbose = "vvv"
+  end
+end

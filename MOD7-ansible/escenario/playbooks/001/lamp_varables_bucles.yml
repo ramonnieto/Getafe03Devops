@@ -1,0 +1,70 @@
+---
+- name: Instalar LAMP completo en nodo1 (RedHat/CentOS/Rocky)
+  hosts: nodo1
+  become: yes
+  vars:
+    lamp_packages:
+      - httpd
+      - mariadb-server
+      - mariadb
+      - php
+      - php-mysqlnd
+    services_rh:
+      - httpd
+      - mariadb
+    firewall_services:
+      - http
+      - https
+
+  tasks:
+    - name: Instalar paquetes LAMP
+      ansible.builtin.dnf:
+        name: "{{ lamp_packages }}"
+        state: present
+
+    - name: Habilitar e iniciar servicios
+      ansible.builtin.service:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop: "{{ services_rh }}"
+
+    - name: Configurar firewall
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+        immediate: yes
+      loop: "{{ firewall_services }}"
+
+  handlers:
+    - name: reiniciar apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted
+
+# ----------------------------------------------------------------------
+
+- name: Instalar LAMP completo en nodo3 (Ubuntu 24.04)
+  hosts: nodo3
+  become: yes
+  tasks:
+    - name: Actualizar caché de paquetes e instalar LAMP
+      ansible.builtin.apt:
+        name:
+          - apache2
+          - mariadb-server
+          - php
+          - php-mysql
+          - libapache2-mod-php
+        update_cache: yes
+        state: present
+
+    - name: Habilitar e iniciar servicios
+      ansible.builtin.service:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - apache2
+        - mariadb

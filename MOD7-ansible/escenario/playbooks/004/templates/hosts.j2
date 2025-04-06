@@ -1,0 +1,13 @@
+# Archivo /etc/hosts generado dinámicamente por Ansible
+127.0.0.1   localhost localhost.localdomain
+::1         localhost localhost.localdomain
+
+{% for group in groups %}
+{% if group != 'all' %}
+# Grupo: {{ group }}
+{% for host in groups[group] %}
+{# Usar IP de los facts (ansible_default_ipv4) o fallback a ansible_host del inventario #}
+{{ hostvars[host].ansible_default_ipv4.address | default(hostvars[host].ansible_host) }} {{ host }}.{{ domain }} {{ host }}
+{% endfor %}
+{% endif %}
+{% endfor %}
