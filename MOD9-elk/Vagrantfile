@@ -1,38 +1,69 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
 Vagrant.configure("2") do |config|
-  nodes = [
-    { name: "administracion", ip: "192.168.33.10" },
-    { name: "recurso", ip: "192.168.33.11" },
-    { name: "seguimiento", ip: "192.168.33.12" }
-  ]
 
-  nodes.each do |node|
-    config.vm.define node[:name] do |n|
-      n.vm.box = "bento/rockylinux-9"
-      n.vm.hostname = node[:name]
-      n.vm.network "private_network", ip: node[:ip]
+  # Imagen base para todas las VMs
+  BOX_IMAGE = "bento/rockylinux-9"
 
-      # Forwarding de puertos dependiendo del nodo
-      case node[:name]
-      when "recurso"
-        # Puerto 8080 de WordPress (Docker) -> Puerto 8080 en localhost
-        n.vm.network "forwarded_port", guest: 8080, host: 8080
-      when "seguimiento"
-        # Puerto 9200 de Elasticsearch -> Puerto 9200 en localhost
-        n.vm.network "forwarded_port", guest: 9200, host: 9200
-        # Puerto 5601 de Kibana -> Puerto 5601 en localhost
-        n.vm.network "forwarded_port", guest: 5601, host: 5601
-        # Puerto 3000 de Grafana -> Puerto 3000 en localhost
-        n.vm.network "forwarded_port", guest: 3000, host: 3000
+  # Definición de las VMs
+  vms = {
+    "administracion" => { ip: "192.168.33.10", playbook: "ansible/administracion.yml" },
+    "recurso"        => { ip: "192.168.33.11", playbook: "ansible/recurso.yml", ports: { 8080 => 80 } }, # WordPress
+    "seguimiento"    => { ip: "192.168.33.12", playbook: "ansible/seguimiento.yml", ports: { 5601 => 5601, 3000 => 3000 } } # Kibana, Grafana
+  }
+
+  vms.each do |name, details|
+    config.vm.define name do |node|
+      node.vm.box = BOX_IMAGE
+      node.vm.hostname = name
+      node.vm.network "private_network", ip: details[:ip]
+
+      # Redirección de puertos si están definidos
+      if details[:ports]
+        details[:ports].each do |host_port, guest_port|
+          node.vm.network "forwarded_port", guest: guest_port, host: host_port, auto_correct: true
+        end
       end
 
-      n.vm.provider "virtualbox" do |vb|
+      # Recursos de la VM
+      node.vm.provider "virtualbox" do |vb|
         vb.memory = 2048
         vb.cpus = 2
       end
 
-      n.vm.provision "ansible_local" do |ansible|
-        ansible.playbook = "provision.yml"
-        ansible.inventory_path = "inventory"
+      # --- Aprovisionamiento ---
+
+# Paso 1: Instalar EPEL, Ansible y Colecciones necesarias dentro de la VM
+      node.vm.provision "shell", inline: <<-SHELL
+        echo "Instalando EPEL, Ansible y Colecciones..."
+        if ! rpm -q epel-release; then
+          dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+        fi
+        if ! command -v ansible > /dev/null 2>&1; then
+          dnf install -y ansible-core python3-pip # python3-pip puede ser útil
+        fi
+        # Instalar colecciones necesarias
+        echo "Instalando colecciones Ansible (ansible.posix, community.docker)..."
+        sudo -u vagrant ansible-galaxy collection install ansible.posix community.docker
+        # Crear directorio para el inventario si no existe
+        mkdir -p /vagrant/ansible
+        # Asegurar que ansible pueda escribir en su log si es necesario
+        touch /var/log/ansible.log
+        chown vagrant:vagrant /var/log/ansible.log
+        echo "Instalación de Ansible y colecciones completada."
+      SHELL
+
+      # Paso 2: Ejecutar el playbook Ansible específico para el rol
+      node.vm.provision "ansible_local" do |ansible|
+        ansible.compatibility_mode = "auto" # Detectar automáticamente o usar una versión como "2.12" si prefieres
+        ansible.provisioning_path = "/vagrant/"
+        ansible.playbook = details[:playbook]
+        ansible.inventory_path = "ansible/hosts"
+        ansible.limit = name
+        ansible.install = false
+        ansible.verbose = "v"
+        ansible.extra_vars = { ansible_python_interpreter: '/usr/bin/python3' }
       end
     end
   end

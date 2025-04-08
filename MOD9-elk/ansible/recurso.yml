@@ -1,0 +1,108 @@
+# ansible/recurso.yml
+---
+- name: Configurar VM de Recurso (WordPress + Docker)
+  hosts: recurso
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Actualizar todos los paquetes del sistema
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: yes
+
+    - name: Instalar paquetes necesarios para Docker
+      ansible.builtin.dnf:
+        name:
+          - dnf-utils
+          - device-mapper-persistent-data
+          - lvm2
+          - firewalld # Para gestionar el firewall
+        state: present
+
+    - name: Agregar repositorio de Docker CE
+      ansible.builtin.command: dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo # No ejecutar si ya existe
+
+    - name: Instalar Docker CE, CLI y Containerd
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin # Plugin de Docker Compose V2
+        state: present
+        update_cache: yes
+
+    - name: Iniciar y habilitar servicio Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Añadir usuario vagrant al grupo docker (útil para debug manual)
+      ansible.builtin.user:
+        name: vagrant
+        groups: docker
+        append: yes
+
+    - name: Asegurar que las entradas /etc/hosts existen para todas las VMs
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {{ administracion_ip }} administracion
+          {{ recurso_ip }} recurso
+          {{ seguimiento_ip }} seguimiento
+        marker: "# ANSIBLE MANAGED BLOCK {{ item }}"
+        state: present
+      loop:
+        - administracion
+        - recurso
+        - seguimiento
+
+    - name: Crear directorio para la configuración de WordPress
+      ansible.builtin.file:
+        path: /opt/wordpress
+        state: directory
+        mode: '0755'
+
+    - name: Copiar archivo docker-compose.yml al servidor
+      ansible.builtin.copy:
+        src: files/docker-compose.yml
+        dest: /opt/wordpress/docker-compose.yml
+        mode: '0644'
+
+    - name: Desplegar contenedores WordPress y MySQL con Docker Compose
+      community.docker.docker_compose_v2: # <-- Módulo NUEVO y CORRECTO
+        project_src: /opt/wordpress
+        state: present # Equivalente a 'docker-compose up -d'
+      register: compose_output
+      # Nota: Si docker-compose-plugin no funciona bien con Ansible,
+      # podrías instalar docker-compose v1 y usar el módulo 'docker_compose'
+      # o usar un módulo 'command': 'docker compose up -d'
+
+    - name: Mostrar salida de Docker Compose
+      ansible.builtin.debug:
+        var: compose_output
+
+    - name: Configurar firewalld
+      ansible.posix.firewalld:
+        port: "{{ item }}" # Puerto 80 para WordPress, 5144 para logs
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - 80/tcp   # Acceso HTTP a WordPress
+        - 5144/udp # Puerto para envío de logs a Logstash via Syslog
+
+    - name: Asegurar que firewalld está activo
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Mostrar mensaje de finalización
+      ansible.builtin.debug:
+        msg: "VM de Recurso configurada. WordPress debería estar disponible en http://{{ ansible_host }}:80 (o http://localhost:8080 desde el host)."

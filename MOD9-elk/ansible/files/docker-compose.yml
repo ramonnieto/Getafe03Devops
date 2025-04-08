@@ -1,0 +1,49 @@
+# ansible/files/docker-compose.yml
+version: '3.8'
+
+services:
+  db:
+    image: mysql:5.7 # Versión estable compatible con muchos plugins/temas WP
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: insecure_root_password # Cambiar en producción
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: insecure_user_password # Cambiar en producción
+    networks:
+      - wordpress-net
+    restart: always
+
+  wordpress:
+    depends_on:
+      - db
+    image: wordpress:latest # Puedes usar una versión específica si prefieres
+    ports:
+      - "80:80" # Expone el puerto 80 del contenedor al puerto 80 de la VM recurso
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: insecure_user_password # Usar la misma contraseña que en db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 1 # Habilitar debug para generar más logs
+    volumes:
+      - wp_files:/var/www/html
+    networks:
+      - wordpress-net
+    logging:
+      # Enviar logs al demonio syslog de Docker, configurado para reenviar
+      # NOTA: La forma más directa es usar el driver 'syslog' o 'gelf'.
+      driver: "syslog"
+      options:
+        # Enviar a la IP de la VM de seguimiento y puerto UDP 5144
+        syslog-address: "udp://192.168.33.12:5144"
+        tag: "wp_container/{{.Name}}/{{.ID}}" # Etiqueta para identificar el origen
+    restart: always
+
+volumes:
+  db_data: {}
+  wp_files: {}
+
+networks:
+  wordpress-net:

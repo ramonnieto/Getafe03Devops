@@ -1,0 +1,55 @@
+# ansible/administracion.yml
+---
+- name: Configurar VM de Administracion
+  hosts: administracion
+  become: yes # Ejecutar tareas como root
+  gather_facts: yes # Recolectar facts (útil para variables como ansible_default_ipv4)
+
+  tasks:
+    - name: Actualizar todos los paquetes del sistema
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: yes
+
+    - name: Instalar paquetes básicos útiles
+      ansible.builtin.dnf:
+        name:
+          - vim
+          - wget
+          - curl
+          - git
+          - net-tools # Para ifconfig, netstat, etc.
+          - bind-utils # Para dig, nslookup
+        state: present
+
+    - name: Asegurar que las entradas /etc/hosts existen para todas las VMs
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {{ administracion_ip }} administracion
+          {{ recurso_ip }} recurso
+          {{ seguimiento_ip }} seguimiento
+        marker: "# ANSIBLE MANAGED BLOCK {{ item }}" # Marcador único para el bloque
+        state: present
+      loop: # Asegura que se aplique a sí mismo y las otras VMs
+        - administracion
+        - recurso
+        - seguimiento
+
+    - name: Abrir firewall para SSH (ya debería estar, pero como ejemplo)
+      ansible.posix.firewalld:
+        service: ssh
+        permanent: yes
+        state: enabled
+        immediate: yes # Aplicar cambios inmediatamente
+
+    - name: Asegurar que firewalld está activo
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Mostrar mensaje de finalización
+      ansible.builtin.debug:
+        msg: "VM de Administración configurada exitosamente."

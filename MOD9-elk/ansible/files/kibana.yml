@@ -1,0 +1,25 @@
+# ansible/files/kibana.yml
+# ======================== Kibana Configuration =========================
+# Default Kibana configuration for attaching to Elasticsearch
+
+# Specifies the address to which the Kibana server will bind. IP addresses and host names are supported.
+# 0.0.0.0 allows access from outside the VM (via port forwarding).
+server.host: "0.0.0.0"
+
+# The URLs of the Elasticsearch instances to use for all your queries.
+elasticsearch.hosts: ["http://192.168.33.12:9200"]
+
+# If Elasticsearch security features are enabled, you must set the username and password for Kibana to use.
+# elasticsearch.username: "kibana_system"
+# elasticsearch.password: "your_password"
+
+# Optional: Define un nombre para esta instancia de Kibana
+# server.name: "kibana-lab"
+
+# Optional: Define el path base si Kibana corre detrás de un proxy
+# server.basePath: "/kibana"
+
+# Logging configuration (opcional)
+# logging.dest: /var/log/kibana/kibana.log
+# logging.quiet: false
+# logging.verbose: false

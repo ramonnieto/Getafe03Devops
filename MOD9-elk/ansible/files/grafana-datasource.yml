@@ -1,0 +1,53 @@
+# ansible/files/grafana-datasource.yml
+# config file version
+apiVersion: 1
+
+# list of datasources to insert/update depending
+# on what's available in the database
+datasources:
+  # <string, required> name of the datasource. Required
+  - name: Elasticsearch-WordPress
+    # <string, required> datasource type. Required
+    type: elasticsearch
+    # <string, required> access mode. direct or proxy. Required
+    access: proxy
+    # <string> url
+    url: http://192.168.33.12:9200
+    # <string> Deprecated: use secureJsonData.password
+    # password:
+    # <string> user name, if required
+    # user:
+    # <string> database name, if required
+    # database:
+    # <bool> enable/disable basic auth
+    # basicAuth:
+    # <string> basic auth username
+    # basicAuthUser:
+    # <string> Deprecated: use secureJsonData.basicAuthPassword
+    # basicAuthPassword:
+    # <bool> enable/disable with credentials headers
+    # withCredentials:
+    # <bool> mark as default datasource. Max one per org
+    isDefault: true
+    # <map> fields specific to the datasource type. Required
+    jsonData:
+      # <string> Time interval in ES date math format, e.g. 10s, 1m, 1h, 1d
+      timeInterval: "5s"
+      # <string> Elasticsearch version (major version number: 2, 5, 6, 7, or 8)
+      esVersion: 8
+      # <string> Index pattern for logs
+      logMessageField: "message" # O el campo que contenga el mensaje de log principal
+      # <string> Field used to indicate the log level
+      logLevelField: "level" # Puede que no exista por defecto, depende del log
+      # <string> Field name for the timestamp
+      timeField: "@timestamp"
+      # <string> Index pattern (opcional aquí, se puede configurar en Grafana UI)
+      # Default index pattern, ajusta si tu patrón de Logstash es diferente
+      database: "[wordpress-logs-]YYYY.MM.DD"
+    # <map> sensitive fields specific to the datasource type. Encrypted at rest.
+    # secureJsonData:
+    #   password:
+    #   basicAuthPassword:
+    # version: 1 # Incrementa si cambias algo para forzar actualización
+    # <bool> allow users to edit datasources from the UI.
+    editable: true

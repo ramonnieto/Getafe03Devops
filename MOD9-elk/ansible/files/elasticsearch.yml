@@ -1,0 +1,28 @@
+# ansible/files/elasticsearch.yml
+# ======================== Elasticsearch Configuration =========================
+cluster.name: elk-grafana-lab
+node.name: seguimiento-node
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+
+# Bind to the private network IP for inter-VM communication
+# Also listen on localhost for local tools if needed
+network.host: 0.0.0.0
+
+# Default HTTP port
+http.port: 9200
+
+# Discovery settings for single-node cluster
+discovery.type: single-node
+
+# Enable security features (optional but recommended for future expansion)
+xpack.security.enabled: false # Deshabilitado por simplicidad en este lab
+xpack.security.enrollment.enabled: false # Necesario si security está enabled
+xpack.security.http.ssl:
+  enabled: false # Deshabilitado por simplicidad
+xpack.security.transport.ssl:
+  enabled: false # Deshabilitado por simplicidad
+
+# Allow CORS (Cross-Origin Resource Sharing) if accessing directly from browser apps if needed
+http.cors.enabled: true
+http.cors.allow-origin: "*" # ¡No usar "*" en producción!

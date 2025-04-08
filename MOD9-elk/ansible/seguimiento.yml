@@ -1,0 +1,235 @@
+# ansible/seguimiento.yml
+---
+- name: Configurar VM de Seguimiento (ELK + Grafana)
+  hosts: seguimiento
+  become: yes
+  gather_facts: yes
+
+  vars:
+    elastic_version: "8.x" # Puedes fijar una versión específica si lo deseas, ej: "8.13.0"
+    grafana_version: "latest" # O una versión específica
+
+  tasks:
+    # --- Preparación y Hosts ---
+    - name: Actualizar todos los paquetes del sistema
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: yes
+
+    - name: Instalar paquetes básicos y Java (dependencia de Elasticsearch/Logstash)
+      ansible.builtin.dnf:
+        name:
+          - vim
+          - wget
+          - curl
+          - java-17-openjdk # Elasticsearch 8 requiere Java 17 o superior
+          - firewalld
+        state: present
+
+    - name: Asegurar que las entradas /etc/hosts existen para todas las VMs
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {{ administracion_ip }} administracion
+          {{ recurso_ip }} recurso
+          {{ seguimiento_ip }} seguimiento
+        marker: "# ANSIBLE MANAGED BLOCK {{ item }}"
+        state: present
+      loop:
+        - administracion
+        - recurso
+        - seguimiento
+
+    # --- Elasticsearch ---
+    - name: Importar clave GPG de Elasticsearch
+      ansible.builtin.rpm_key:
+        key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+
+    - name: Agregar repositorio de Elasticsearch
+      ansible.builtin.yum_repository:
+        name: elasticsearch-{{ elastic_version }}
+        description: Elasticsearch repository for {{ elastic_version }} packages
+        baseurl: https://artifacts.elastic.co/packages/{{ elastic_version }}/yum
+        gpgcheck: yes
+        gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        enabled: yes
+        state: present
+
+    - name: Instalar Elasticsearch
+      ansible.builtin.dnf:
+        name: elasticsearch
+        state: present
+        update_cache: yes # Actualizar caché después de añadir repo
+
+    - name: Copiar archivo de configuración de Elasticsearch
+      copy:
+        src: files/elasticsearch.yml
+        dest: /etc/elasticsearch/elasticsearch.yml
+        mode: '0660'
+        owner: root
+        group: elasticsearch
+      notify: Reiniciar Elasticsearch # Handler para reiniciar si cambia la config
+
+    - name: Asegurar que el directorio de datos de Elasticsearch existe
+      ansible.builtin.file:
+        path: /var/lib/elasticsearch
+        state: directory
+        owner: elasticsearch
+        group: elasticsearch
+        mode: '0755'
+
+    - name: Habilitar e iniciar servicio Elasticsearch
+      ansible.builtin.systemd:
+        name: elasticsearch
+        state: started
+        enabled: yes
+        daemon_reload: yes # Recargar systemd por si acaso
+
+    - name: Esperar a que Elasticsearch esté disponible en el puerto 9200
+      wait_for:
+        host: "{{ seguimiento_ip }}" # Usar la IP interna
+        port: 9200
+        delay: 10 # Segundos de espera inicial
+        timeout: 120 # Máximo tiempo de espera
+        state: started # Espera a que el puerto esté abierto
+      # No usar become:yes aquí, se ejecuta localmente en el controlador Ansible (que es la propia VM)
+
+    # --- Logstash ---
+    - name: Instalar Logstash (usa el mismo repo que Elasticsearch)
+      ansible.builtin.dnf:
+        name: logstash
+        state: present
+
+    - name: Copiar archivo de configuración de pipeline Logstash
+      ansible.builtin.copy:
+        src: files/logstash.conf
+        dest: /etc/logstash/conf.d/logstash.conf # Directorio estándar para pipelines
+        mode: '0644'
+      notify: Reiniciar Logstash
+
+    - name: Habilitar e iniciar servicio Logstash
+      ansible.builtin.systemd:
+        name: logstash
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # --- Kibana ---
+    - name: Instalar Kibana (usa el mismo repo que Elasticsearch)
+      ansible.builtin.dnf:
+        name: kibana
+        state: present
+
+    - name: Copiar archivo de configuración de Kibana
+      ansible.builtin.copy:
+        src: files/kibana.yml
+        dest: /etc/kibana/kibana.yml
+        mode: '0660'
+        owner: root
+        group: kibana
+      notify: Reiniciar Kibana
+
+    - name: Habilitar e iniciar servicio Kibana
+      ansible.builtin.systemd:
+        name: kibana
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # --- Grafana ---
+    - name: Crear archivo de repositorio de Grafana
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/grafana.repo
+        content: |
+          [grafana]
+          name=grafana
+          baseurl=https://packages.grafana.com/oss/rpm
+          repo_gpgcheck=1
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://packages.grafana.com/gpg.key
+          sslverify=1
+          sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+        mode: '0644'
+
+    - name: Instalar Grafana
+      ansible.builtin.dnf:
+        name: grafana
+        state: present
+        update_cache: yes
+
+    - name: Crear directorio de aprovisionamiento de datasources de Grafana
+      ansible.builtin.file:
+        path: /etc/grafana/provisioning/datasources
+        state: directory
+        mode: '0755'
+        owner: grafana
+        group: grafana
+
+    - name: Copiar archivo de configuración de datasource de Grafana
+      ansible.builtin.copy:
+        src: files/grafana-datasource.yml
+        dest: /etc/grafana/provisioning/datasources/elasticsearch.yml
+        mode: '0644'
+        owner: grafana
+        group: grafana
+      notify: Reiniciar Grafana
+
+    - name: Habilitar e iniciar servicio Grafana
+      systemd:
+        name: grafana-server
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+    # --- Firewall ---
+    - name: Configurar firewalld para permitir tráfico necesario
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - 9200/tcp   # Elasticsearch HTTP
+        - 5601/tcp   # Kibana UI
+        - 3000/tcp   # Grafana UI
+        - 5144/udp   # Logstash Syslog Input (desde Recurso VM)
+      # Nota: Si usaras Beats input, sería 5044/tcp
+
+    - name: Asegurar que firewalld está activo
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Mostrar mensaje de finalización
+      ansible.builtin.debug:
+        msg: "VM de Seguimiento configurada con ELK y Grafana."
+
+  # --- Handlers (Se ejecutan al final si son notificados) ---
+  handlers:
+    - name: Reiniciar Elasticsearch
+      ansible.builtin.systemd:
+        name: elasticsearch
+        state: restarted
+        daemon_reload: yes
+
+    - name: Reiniciar Logstash
+      systemd:
+        name: logstash
+        state: restarted
+        daemon_reload: yes
+
+    - name: Reiniciar Kibana
+      ansible.builtin.systemd:
+        name: kibana
+        state: restarted
+        daemon_reload: yes
+
+    - name: Reiniciar Grafana
+      ansible.builtin.systemd:
+        name: grafana-server
+        state: restarted
+        daemon_reload: yes

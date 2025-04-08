@@ -1,0 +1,15 @@
+# ansible/hosts
+[administracion]
+administracion ansible_connection=local ansible_user=vagrant
+
+[recurso]
+recurso ansible_connection=local ansible_user=vagrant
+
+[seguimiento]
+seguimiento ansible_connection=local ansible_user=vagrant
+
+[all:vars]
+# Definir IPs aquí facilita su uso en playbooks
+administracion_ip = 192.168.33.10
+recurso_ip = 192.168.33.11
+seguimiento_ip = 192.168.33.12
