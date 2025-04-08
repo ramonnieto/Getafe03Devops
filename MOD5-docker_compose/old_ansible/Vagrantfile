@@ -1,0 +1,56 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  # Configuraciones comunes pueden ir aquí si es necesario
+  # config.vm.box_check_update = false # Descomentar para evitar buscar actualizaciones de la box
+
+  # Define el nodo Manager (mgr)
+  config.vm.define "mgr" do |mgr|
+    mgr.vm.box = "bento/ubuntu-22.04"
+    mgr.vm.hostname = "mgr"
+    mgr.vm.network "private_network", ip: "192.168.33.10"
+    mgr.vm.network "forwarded_port", guest: 80, host: 8088 # Puerto específico del anfitrión para mgr
+
+    # Asegura que la carpeta sincronizada está disponible (por defecto es ".", "/vagrant")
+    # Ansible clonará el repo en /vagrant/bus-app dentro del invitado
+    mgr.vm.synced_folder ".", "/vagrant"
+
+    mgr.vm.provider "virtualbox" do |vb|
+       vb.memory = "1024" # Ajusta la memoria y andamos por debajo de requisito mínimos. No quiero pensar en que solo usamos un core ...
+       vb.cpus = "1"
+    end
+
+    # Aprovisiona usando Ansible Local
+    mgr.vm.provision "ansible_local" do |ansible|
+      ansible.playbook = "playbook_mgr.yml"
+      # ansible.install = true # Asegura que Ansible se instala en el guest (invitado) (por defecto)
+      # ansible.verbose = "v" # Opcional: Añadir verbosidad
+    end
+  end
+
+  # Define el nodo Worker (wkr)
+  config.vm.define "wkr" do |wkr|
+    wkr.vm.box = "bento/ubuntu-22.04"
+    wkr.vm.hostname = "wkr"
+    wkr.vm.network "private_network", ip: "192.168.33.11"
+    wkr.vm.network "forwarded_port", guest: 80, host: 8089 # Puerto específico del anfitrión para wkr
+
+    # Asegura que la carpeta sincronizada está disponible
+    wkr.vm.synced_folder ".", "/vagrant"
+
+     wkr.vm.provider "virtualbox" do |vb|
+       vb.memory = "1024" # Memoria justa. Si nos da un delay muy grande lo cambiamos
+       vb.cpus = "1"
+    end
+
+    # Aprovisiona usando Ansible Local
+    wkr.vm.provision "ansible_local" do |ansible|
+      ansible.playbook = "playbook_wkr.yml"
+      ansible.install = true # 
+      # ansible.verbose = "v" # Opcional: Añadir verbosidad
+    end
+  end
+
+end
