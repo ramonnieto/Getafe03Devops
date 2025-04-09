@@ -1,0 +1,6 @@
+---
+- name: Comprabación de nodos en inventory mediante playbook
+  hosts: all
+  tasks:
+    - name: Usamos el módulo de comprobación ICMP echo/reply
+      ansible.builtin.ping: 
