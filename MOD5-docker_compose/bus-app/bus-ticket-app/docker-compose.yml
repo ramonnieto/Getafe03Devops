@@ -1,9 +1,7 @@
 services:
   # Servicio de Nginx (Proxy Inverso + Frontend)
   proxy:
-    build:
-      context: .                # Contexto raíz para acceder al frontend
-      dockerfile: proxy/Dockerfile
+    image: bus-ticket-app-proxy
     ports:
       - "80:80"  # Accesible desde el host en http://localhost
     depends_on:
@@ -15,28 +13,28 @@ services:
       - app-network
 
   user-auth:
-    build: ./microservices/user-auth
+    image: bus-ticket-app-user-auth
     ports:
       - "5001:5001"
     networks:
       - app-network
       
   bus-reservation:
-    build: ./microservices/bus-reservation
+    image: bus-ticket-app-payment-gateway
     ports:
       - "5002:5002"
     networks:
       - app-network
       
   payment-gateway:
-    build: ./microservices/payment-gateway
+    image: bus-ticket-app-bus-reservation
     ports:
       - "5003:5003"
     networks:
       - app-network
 
   route-scheduler:
-    build: ./microservices/route-scheduler
+    image: bus-ticket-app-route-scheduler
     ports:
       - "5004:5004"
     networks:
@@ -44,4 +42,5 @@ services:
       
 networks:
   app-network:
-    driver: bridge
+    external: true
+    #network: red-psoe
