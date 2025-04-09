@@ -11,7 +11,7 @@
   vars:
     swarm_join_file: /vagrant/unir_swarm.txt # Define la ruta para el archivo del comando de join
     manager_ip: 192.168.33.10 # Define explícitamente la IP del manager aquí
-    repo_url: https://github.com/tecducatio/bus-app.git
+    repo_url: https://github.com/ricardoinstructor/bus-app.git
     repo_dest: /vagrant/bus-app # el volcado del git
     app_build_dir: "{{ repo_dest }}/bus-ticket-app/" # Directorio para build/deploy    
   tasks:
