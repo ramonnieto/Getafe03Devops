@@ -1,0 +1,42 @@
+---
+# Primero, ejecuta las tareas comunes de configuración (vamos, instalar docker)
+- name: Importar playbook común
+  ansible.builtin.import_playbook: playbook_common.yml
+
+# Luego, ejecuta las tareas específicas del worker
+- name: Configuración Específica del Nodo Worker
+  hosts: all # Vagrant ejecuta esto solo en el nodo wkr definido en el Vagrantfile ya que no hay inventario. Algo así como localhost.
+  become: yes
+  vars:
+    swarm_join_file: /vagrant/unir_swarm.txt # Ruta al archivo del comando de join
+    repo_dest: /vagrant/bus-app 
+    app_build_dir: "{{ repo_dest }}/bus-ticket-app/" # Directorio para build/deploy          
+  tasks:
+    - name: Construir imágenes de la aplicación con docker compose
+      ansible.builtin.command:
+        cmd: docker compose build
+        chdir: "{{ app_build_dir }}" # Usa la variable para el directorio correcto
+      environment: # Pasa variables de entorno si son necesarias para compose
+        COMPOSE_PROJECT_NAME: busapp # Opcional: establece un nombre de proyecto
+      register: compose_build_result
+      changed_when: "'Successfully built' in compose_build_result.stdout"
+      
+    - name: Esperar a que el archivo del comando de unión sea creado por el manager
+      ansible.builtin.wait_for:
+        path: "{{ swarm_join_file }}"
+        state: present
+        timeout: 120 # Espera hasta 2 minutos
+
+    - name: Leer el comando de unión desde el archivo (usando cat)
+      ansible.builtin.command:
+         cmd: "cat {{ swarm_join_file }}"
+      register: join_cmd_output # Guarada la salida del comando cat
+      changed_when: false # Leer un archivo no cambia el estado
+
+    - name: Unirse al Docker Swarm
+      ansible.builtin.command:
+        # Ejecuta la salida estándar del comando cat, eliminando espacios/saltos de línea. Esto fue un rollo
+        cmd: "{{ join_cmd_output.stdout | trim }}"
+      register: swarm_join_result
+      failed_when: "'Error response from daemon' in swarm_join_result.stderr and 'This node is already part of a swarm' not in swarm_join_result.stderr"
+      changed_when: "'This node joined a swarm as a worker' in swarm_join_result.stdout"
